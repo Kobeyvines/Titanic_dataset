@@ -26,6 +26,65 @@ def clean_ticket(ticket):
         return prefix
 
 
+def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    The SHARED logic for Feature Engineering.
+    Used by: Training, Inference (API), and Batch Prediction.
+    """
+    # 1. Family Size
+    # Check if cols exist (API input might vary slightly, but here we assume standard)
+    if all(col in df.columns for col in ["sibsp", "parch"]):
+        df["familysize"] = df["sibsp"] + df["parch"] + 1
+        df["isalone"] = (df["familysize"] == 1).astype(int)
+
+    # 2. Title Extraction
+    if "name" in df.columns:
+        df["title"] = df["name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
+        title_mapping = {
+            "Mr": "Mr",
+            "Miss": "Miss",
+            "Mrs": "Mrs",
+            "Master": "Master",
+            "Dr": "Rare",
+            "Rev": "Rare",
+            "Col": "Rare",
+            "Major": "Rare",
+            "Mlle": "Miss",
+            "Countess": "Rare",
+            "Ms": "Miss",
+            "Lady": "Rare",
+            "Jonkheer": "Rare",
+            "Don": "Rare",
+            "Dona": "Rare",
+            "Mme": "Mrs",
+            "Capt": "Rare",
+            "Sir": "Rare",
+        }
+        df["title"] = df["title"].map(title_mapping).fillna("Rare")
+    elif "title" not in df.columns:
+        df["title"] = "Rare"  # Fallback
+
+    # 3. Deck
+    if "cabin" in df.columns:
+        df["deck"] = df["cabin"].str[0].fillna("U")
+    else:
+        df["deck"] = "U"
+
+    # 4. Ticket Prefix
+    if "ticket" in df.columns:
+        df["ticketprefix"] = df["ticket"].apply(clean_ticket)
+    else:
+        df["ticketprefix"] = "X"
+
+    # 5. Log Fare
+    if "fare" in df.columns:
+        # Handle missing values internally
+        df["fare"] = df["fare"].fillna(df["fare"].median())
+        df["fare"] = np.log1p(df["fare"])
+
+    return df
+
+
 def preprocess_input(input_data: dict) -> pd.DataFrame:
     """
     Takes raw dictionary from API, returns scaled DataFrame ready for model.
