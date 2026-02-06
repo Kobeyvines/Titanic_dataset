@@ -48,34 +48,37 @@ def preprocess_input(input_data: dict) -> pd.DataFrame:
     df["isalone"] = (df["familysize"] == 1).astype(int)
 
     # B. Title Extraction
-    df["title"] = df["name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
-    title_mapping = {
-        "Mr": "Mr",
-        "Miss": "Miss",
-        "Mrs": "Mrs",
-        "Master": "Master",
-        "Dr": "Rare",
-        "Rev": "Rare",
-        "Col": "Rare",
-        "Major": "Rare",
-        "Mlle": "Miss",
-        "Countess": "Rare",
-        "Ms": "Miss",
-        "Lady": "Rare",
-        "Jonkheer": "Rare",
-        "Don": "Rare",
-        "Dona": "Rare",
-        "Mme": "Mrs",
-        "Capt": "Rare",
-        "Sir": "Rare",
-    }
-    df["title"] = df["title"].map(title_mapping).fillna("Rare")
+    if "name" in df.columns:
+        df["title"] = df["name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
+        title_mapping = {
+            "Mr": "Mr",
+            "Miss": "Miss",
+            "Mrs": "Mrs",
+            "Master": "Master",
+            "Dr": "Rare",
+            "Rev": "Rare",
+            "Col": "Rare",
+            "Major": "Rare",
+            "Mlle": "Miss",
+            "Countess": "Rare",
+            "Ms": "Miss",
+            "Lady": "Rare",
+            "Jonkheer": "Rare",
+            "Don": "Rare",
+            "Dona": "Rare",
+            "Mme": "Mrs",
+            "Capt": "Rare",
+            "Sir": "Rare",
+        }
+        df["title"] = df["title"].map(title_mapping).fillna("Rare")
+    else:
+        df["title"] = "Rare"
 
     # C. Fare Log Transform (handle missing first)
-    if df["fare"].isnull().any():
-        # Use a reasonable default or median (would need to be computed from train)
-        df["fare"] = df["fare"].fillna(7.75)  # Approximate median
-    df["fare"] = np.log1p(df["fare"])
+    if "fare" in df.columns:
+        if df["fare"].isnull().any():
+            df["fare"] = df["fare"].fillna(7.75)  # Approximate median
+        df["fare"] = np.log1p(df["fare"])
 
     # D. Deck Extraction from Cabin
     if "cabin" in df.columns:
@@ -90,7 +93,7 @@ def preprocess_input(input_data: dict) -> pd.DataFrame:
         df["ticketprefix"] = "X"
 
     # ---------------------------------------------------------
-    # ENCODING & ALIGNMENT
+    # ENCODING & ALIGNMENT (CRITICAL FIXES HERE)
     # ---------------------------------------------------------
 
     # Define columns to encode (must match notebook exactly)
@@ -101,14 +104,18 @@ def preprocess_input(input_data: dict) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = "unknown"
 
-    # Convert pclass to string for encoding
+    # Convert pclass to string for encoding (handling int vs str input mismatch)
     df["pclass"] = df["pclass"].astype(str)
 
-    # One-hot encode standard columns
-    df_encoded = pd.get_dummies(df[cols_to_encode], drop_first=True)
+    # FIX 1: Set drop_first=False
+    # If we input a single row (e.g., sex="male"), drop_first=True would delete
+    # the "sex_male" column, leaving us with NO data.
+    # By keeping it False, we generate "sex_male".
+    df_encoded = pd.get_dummies(df[cols_to_encode], drop_first=False)
 
-    # One-hot encode ticket separately to match notebook
-    df_ticket = pd.get_dummies(df["ticketprefix"], prefix="ticket", drop_first=True)
+    # FIX 2: Set drop_first=False and prefix='ticket'
+    # Same logic for tickets. Ensures we don't erase the ticket info.
+    df_ticket = pd.get_dummies(df["ticketprefix"], prefix="ticket", drop_first=False)
 
     # Drop raw text columns and combine
     cols_to_drop = cols_to_encode + [
@@ -123,7 +130,10 @@ def preprocess_input(input_data: dict) -> pd.DataFrame:
 
     df_final = pd.concat([df_processed, df_encoded, df_ticket], axis=1)
 
-    # CRITICAL: Align to model's expected columns
+    # FIX 3: Reindex acts as the filter
+    # This aligns the columns to exactly what the model saw during training.
+    # It drops the "extra" columns we kept (like sex_female if unnecessary)
+    # and fills missing columns (like other ticket prefixes) with 0.
     df_final = df_final.reindex(columns=MODEL_COLUMNS, fill_value=0)
 
     # ---------------------------------------------------------
@@ -131,7 +141,7 @@ def preprocess_input(input_data: dict) -> pd.DataFrame:
     # ---------------------------------------------------------
 
     scale_cols = ["age", "fare", "familysize"]
-    # Only scale if columns exist
+    # Only scale if columns exist in the final dataframe
     scale_cols_present = [col for col in scale_cols if col in df_final.columns]
 
     if scale_cols_present:
