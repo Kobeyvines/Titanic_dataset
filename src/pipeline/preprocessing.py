@@ -5,58 +5,136 @@ import numpy as np
 import pandas as pd
 
 # Load artifacts (cached globally so we don't load them on every request)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SCALER = joblib.load(PROJECT_ROOT / "models" / "scaler.pkl")
 MODEL_COLUMNS = joblib.load(PROJECT_ROOT / "models" / "model_columns.pkl")
+
+
+def clean_ticket(ticket):
+    """
+    Extracts the prefix from the ticket string.
+    e.g., "A/5 21171" -> "A5"
+    e.g., "12345" -> "X"
+    """
+    ticket = str(ticket)
+    if ticket.isdigit():
+        return "X"
+    else:
+        # Get the first part, remove special characters
+        prefix = ticket.split(" ")[0]
+        prefix = prefix.replace(".", "").replace("/", "")
+        return prefix
 
 
 def preprocess_input(input_data: dict) -> pd.DataFrame:
     """
     Takes raw dictionary from API, returns scaled DataFrame ready for model.
+
+    Expected input keys (case-insensitive, will be lowercased):
+    - pclass, name, sex, age, sibsp, parch, fare, ticket, embarked
     """
     # 1. Convert Dictionary to DataFrame
-    df = pd.DataFrame([input_data])  # Wrap in list to make it a row
+    df = pd.DataFrame([input_data])
+
+    # 2. Lowercase all columns for consistency with training data
+    df.columns = df.columns.str.lower()
 
     # ---------------------------------------------------------
-    # FEATURE ENGINEERING (Copy-Paste logic from Notebook)
+    # FEATURE ENGINEERING (Matching Notebook Logic)
     # ---------------------------------------------------------
 
     # A. Family Size
-    df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
-    df["IsAlone"] = (df["FamilySize"] == 1).astype(int)
+    df["familysize"] = df["sibsp"] + df["parch"] + 1
+    df["isalone"] = (df["familysize"] == 1).astype(int)
 
     # B. Title Extraction
-    df["title"] = df["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
-    # (Simplified mapping for demo - normally you'd use the full dict)
-    title_mapping = {"Mr": "Mr", "Miss": "Miss", "Mrs": "Mrs", "Master": "Master"}
+    df["title"] = df["name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
+    title_mapping = {
+        "Mr": "Mr",
+        "Miss": "Miss",
+        "Mrs": "Mrs",
+        "Master": "Master",
+        "Dr": "Rare",
+        "Rev": "Rare",
+        "Col": "Rare",
+        "Major": "Rare",
+        "Mlle": "Miss",
+        "Countess": "Rare",
+        "Ms": "Miss",
+        "Lady": "Rare",
+        "Jonkheer": "Rare",
+        "Don": "Rare",
+        "Dona": "Rare",
+        "Mme": "Mrs",
+        "Capt": "Rare",
+        "Sir": "Rare",
+    }
     df["title"] = df["title"].map(title_mapping).fillna("Rare")
 
-    # C. Fare Log Transform
-    # Note: If Fare is missing in input, you might need a default value here
-    df["Fare"] = np.log1p(df["Fare"])
+    # C. Fare Log Transform (handle missing first)
+    if df["fare"].isnull().any():
+        # Use a reasonable default or median (would need to be computed from train)
+        df["fare"] = df["fare"].fillna(7.75)  # Approximate median
+    df["fare"] = np.log1p(df["fare"])
 
-    # D. Ticket Prefix (Simplifying: just dropping it for now or adding logic)
-    # If you used TicketPrefix, you must repeat the extraction logic here.
+    # D. Deck Extraction from Cabin
+    if "cabin" in df.columns:
+        df["deck"] = df["cabin"].str[0].fillna("U")
+    else:
+        df["deck"] = "U"  # Default for missing cabin
 
-    # ---------------------------------------------------------
-    # ENCODING & ALIGNMENT (The Magic Step)
-    # ---------------------------------------------------------
-
-    # 2. One-Hot Encode
-    categorical_cols = ["Pclass", "Sex", "Embarked", "title"]  # Add others used
-    df_encoded = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
-
-    # 3. ALIGN COLUMNS
-    # This is critical: Enforce the DataFrame to have exactly the training columns
-    # Any missing column (like 'Title_Rare') gets filled with 0
-    df_encoded = df_encoded.reindex(columns=MODEL_COLUMNS, fill_value=0)
+    # E. Ticket Prefix
+    if "ticket" in df.columns:
+        df["ticketprefix"] = df["ticket"].apply(clean_ticket)
+    else:
+        df["ticketprefix"] = "X"
 
     # ---------------------------------------------------------
-    # SCALING
+    # ENCODING & ALIGNMENT
     # ---------------------------------------------------------
 
-    # 4. Scale Numerical Columns
-    scale_cols = ["Age", "Fare", "FamilySize"]
-    df_encoded[scale_cols] = SCALER.transform(df_encoded[scale_cols])
+    # Define columns to encode (must match notebook exactly)
+    cols_to_encode = ["pclass", "sex", "embarked", "title", "deck"]
 
-    return df_encoded
+    # Ensure they exist
+    for col in cols_to_encode:
+        if col not in df.columns:
+            df[col] = "unknown"
+
+    # Convert pclass to string for encoding
+    df["pclass"] = df["pclass"].astype(str)
+
+    # One-hot encode standard columns
+    df_encoded = pd.get_dummies(df[cols_to_encode], drop_first=True)
+
+    # One-hot encode ticket separately to match notebook
+    df_ticket = pd.get_dummies(df["ticketprefix"], prefix="ticket", drop_first=True)
+
+    # Drop raw text columns and combine
+    cols_to_drop = cols_to_encode + [
+        "ticketprefix",
+        "name",
+        "ticket",
+        "sibsp",
+        "parch",
+        "cabin",
+    ]
+    df_processed = df.drop(columns=cols_to_drop, errors="ignore")
+
+    df_final = pd.concat([df_processed, df_encoded, df_ticket], axis=1)
+
+    # CRITICAL: Align to model's expected columns
+    df_final = df_final.reindex(columns=MODEL_COLUMNS, fill_value=0)
+
+    # ---------------------------------------------------------
+    # SCALING (Lowercase column names to match training)
+    # ---------------------------------------------------------
+
+    scale_cols = ["age", "fare", "familysize"]
+    # Only scale if columns exist
+    scale_cols_present = [col for col in scale_cols if col in df_final.columns]
+
+    if scale_cols_present:
+        df_final[scale_cols_present] = SCALER.transform(df_final[scale_cols_present])
+
+    return df_final
