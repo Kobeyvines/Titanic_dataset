@@ -1,11 +1,6 @@
 fastapi
 uvicorn
-pandas
-numpy
-scikit-learn
-joblib
-xgboost
+jinja2
 pydantic
-python-multipart
-jinja2          <-- MUST BE HERE
-aiofiles        <-- MUST BE HERE
+pandas
+scikit-learn
