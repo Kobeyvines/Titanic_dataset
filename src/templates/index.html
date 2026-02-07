@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Titanic Survival Predictor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>🚢 Titanic Survival Predictor</h1>
+
+    <div class="form-group">
+        <label>Passenger Class</label>
+        <select id="pclass" onchange="updateConstraints()">
+            <option value="1">1st Class (Rich)</option>
+            <option value="2">2nd Class (Middle)</option>
+            <option value="3" selected>3rd Class (Poor)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Sex</label>
+        <select id="sex">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Age (Years)</label>
+        <input type="number" id="age" value="30" min="0" max="100" step="0.5"
+               onblur="validateInput(this, 0, 100)">
+    </div>
+
+    <div class="form-group">
+        <label>Siblings/Spouses Aboard</label>
+        <input type="number" id="sibsp" value="0" min="0" max="8"
+               onblur="validateInput(this, 0, 8)">
+    </div>
+
+    <div class="form-group">
+        <label>Parents/Children Aboard</label>
+        <input type="number" id="parch" value="0" min="0" max="6"
+               onblur="validateInput(this, 0, 6)">
+    </div>
+
+    <div class="form-group">
+        <label>Fare ($) <span id="fare-label" style="font-size: 0.8em; color: gray;"></span></label>
+        <input type="number" id="fare" value="13" min="0"
+               onblur="validateFare()">
+    </div>
+
+    <div class="form-group">
+        <label>Port of Embarkation</label>
+        <select id="embarked">
+            <option value="S">Southampton (S)</option>
+            <option value="C">Cherbourg (C)</option>
+            <option value="Q">Queenstown (Q)</option>
+        </select>
+    </div>
+
+    <button onclick="predictSurvival()">Predict Survival</button>
+
+    <div id="result"></div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
