@@ -1,24 +1,23 @@
-# Vercel internals (CRITICAL)
-.vercel
-.vercel_build_output
+# --- KILL DVC (The likely culprit) ---
+.dvc
+.dvcignore
+data.dvc
+*.dvc
 
-# Git (Heavy)
+# --- IGNORE DATA (Vercel hates symlinks) ---
+data
+data/
+images/
+notebook/
+
+# --- IGNORE GIT & ENVIRONMENT ---
 .git
 .gitignore
-.gitattributes
-
-# Environment (Heavy)
 venv
 env
 .venv
-.env
-
-# Data & Notebooks (Not needed for API)
-data
-notebook
-images
-*.dvc
-
-# Python Cache
 __pycache__
 *.pyc
+
+# --- IGNORE VERCEL CACHE ---
+.vercel
