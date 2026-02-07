@@ -7,37 +7,39 @@ import yaml
 
 def load_config(config_path=None):
     """
-    Loads the YAML configuration file based on the environment.
+    Loads the YAML configuration file.
 
     Priority:
-    1. Explicit config_path argument (if provided).
-    2. 'ENV' environment variable -> config/env-{ENV}.yaml
-    3. Default -> config/env-dev.yaml
+    1. Explicit config_path argument.
+    2. Root folder -> env-{ENV}.yaml
+    3. Config folder -> local.yaml (Fallback)
     """
     if config_path is None:
-        # 1. Get the environment name (default to 'dev' if not set)
-        # On Vercel, we will set ENV="prod"
+        # 1. Get Environment
         env = os.getenv("ENV", "dev")
 
-        # 2. Resolve project root
-        base_path = Path(__file__).resolve().parent.parent
+        # 2. Define Base Paths
+        project_root = Path(__file__).resolve().parent.parent
 
-        # 3. Construct the config path
-        # e.g., config/env-dev.yaml or config/env-prod.yaml
-        config_file = f"env-{env}.yaml"
-        config_path = base_path / "config" / config_file
+        # 3. Look for env file in ROOT
+        root_config = project_root / f"env-{env}.yaml"
 
-    # 4. Safety Check & Fallback
-    if not config_path.exists():
-        # If env-dev.yaml doesn't exist yet, try falling back to the old local.yaml
-        fallback_path = config_path.parent / "local.yaml"
-        if fallback_path.exists():
-            print(f"Warning: {config_path.name} not found. Falling back to local.yaml")
-            config_path = fallback_path
+        # 4. Look for local.yaml in CONFIG folder
+        fallback_config = project_root / "config" / "local.yaml"
+
+        if root_config.exists():
+            config_path = root_config
+            print(f"Loaded config from ROOT: {config_path.name}")
+        elif fallback_config.exists():
+            config_path = fallback_config
+            print(
+                f"env-{env}.yaml not found in root. Falling back to config/local.yaml"
+            )
         else:
             raise FileNotFoundError(
-                f"Configuration file not found at {config_path}. "
-                f"Make sure you have created config/env-{os.getenv('ENV', 'dev')}.yaml"
+                f"Configuration file not found.\n"
+                f"Checked: {root_config}\n"
+                f"Checked: {fallback_config}"
             )
 
     with open(config_path, "r") as file:
