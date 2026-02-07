@@ -1,19 +1,24 @@
-# Ignore the Heavy Data (The API doesn't need raw CSVs)
-data/
-notebook/
-images/
+# Vercel internals (CRITICAL)
+.vercel
+.vercel_build_output
 
-# Ignore Local Python Environment (HUGE!)
-venv/
-env/
-.venv/
-__pycache__/
-*.pyc
-
-# Ignore Git history
-.git/
+# Git (Heavy)
+.git
 .gitignore
+.gitattributes
 
-# Ignore any random large files
-*.zip
-*.tar.gz
+# Environment (Heavy)
+venv
+env
+.venv
+.env
+
+# Data & Notebooks (Not needed for API)
+data
+notebook
+images
+*.dvc
+
+# Python Cache
+__pycache__
+*.pyc
