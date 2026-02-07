@@ -1,16 +1,21 @@
-# --- KILL DVC (The likely culprit) ---
+# --- KILL DVC ---
 .dvc
 .dvcignore
 data.dvc
 *.dvc
 
-# --- IGNORE DATA (Vercel hates symlinks) ---
-data
+# --- IGNORE DATA ---
 data/
 images/
 notebook/
 
-# --- IGNORE GIT & ENVIRONMENT ---
+# --- IGNORE MODELS (keep only prod models) ---
+models/*
+!models/model.pkl
+!models/scaler.pkl
+!models/model_columns.pkl
+
+# --- IGNORE GIT & ENV ---
 .git
 .gitignore
 venv
@@ -18,6 +23,7 @@ env
 .venv
 __pycache__
 *.pyc
+env-*.yaml
 
 # --- IGNORE VERCEL CACHE ---
 .vercel
