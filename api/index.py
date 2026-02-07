@@ -13,7 +13,7 @@ from src.pipeline.predict_pipeline import TitanicClassifier
 
 # 1. Setup Paths (Robust for Vercel)
 # This finds the root folder regardless of where the code runs
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
 
@@ -21,22 +21,9 @@ app = FastAPI(title="Titanic Survival Predictor", version="1.0.0")
 
 # 2. Setup Templates & Static Files
 # We check where they are located to avoid "Directory Not Found" errors
-if (BASE_DIR / "templates").exists():
-    templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-    # Mount static if it exists
-    if (BASE_DIR / "static").exists():
-        app.mount(
-            "/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static"
-        )
-else:
-    # Fallback to src/templates if not in root
-    templates = Jinja2Templates(directory=str(BASE_DIR / "src/templates"))
-    if (BASE_DIR / "src/static").exists():
-        app.mount(
-            "/static",
-            StaticFiles(directory=str(BASE_DIR / "src/static")),
-            name="static",
-        )
+templates = Jinja2Templates(directory=str(BASE_DIR / "src/templates"))
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "src/static")), name="static")
+
 
 # 3. Initialize Classifier
 # This calls your class from predict_pipeline.py
