@@ -1,5 +1,3 @@
-# Add this near the top of src/main.py
-# import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -13,28 +11,9 @@ from pydantic import BaseModel
 # Import your custom pipeline
 from src.pipeline.predict_pipeline import TitanicClassifier
 
-# 1. Find the Project Root
-# This moves up 2 levels from src/main.py to the Root
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# 2. Define Template Directory
-# Try Root first (Vercel usually puts it here)
-TEMPLATES_DIR = BASE_DIR / "templates"
-
-# Fallback: Check if it's inside src/ (Local setup sometimes)
-if not TEMPLATES_DIR.exists():
-    TEMPLATES_DIR = BASE_DIR / "src" / "templates"
-
-# 3. Mount Templates
-if TEMPLATES_DIR.exists():
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-else:
-    # If this prints in Vercel logs, we know the folder is missing
-    print(f"❌ CRITICAL: Templates not found at {TEMPLATES_DIR}")
-
 # 1. Setup Paths (Robust for Vercel)
 # This finds the root folder regardless of where the code runs
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BASE_DIR))
 
 
