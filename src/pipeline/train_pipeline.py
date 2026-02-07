@@ -20,15 +20,21 @@ config = load_config()
 configure_logging(config["logging"]["level"])
 logger = logging.getLogger(__name__)
 
+# --- DEFINE BASE_DIR GLOBALLY ---
+# This fixes the scope issues and allows us to use it in the class
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+print(f"DEBUG: Script is running from: {Path(__file__).resolve()}")
+print(f"DEBUG: Model Directory is set to: {BASE_DIR / config['data']['model_dir']}")
+
 
 class TrainingPipeline:
     """
     Object-Oriented Pipeline for training the Titanic Survival Model.
-    Configured via config/local.yaml.
+    Configured via config/local.yaml using the 'Model Registry' pattern.
     """
 
     def __init__(self):
-        self.base_dir = Path(__file__).resolve().parent.parent.parent
+        self.base_dir = BASE_DIR
 
         # Load paths from config
         self.data_path = self.base_dir / config["data"]["train_path"]
@@ -87,7 +93,9 @@ class TrainingPipeline:
         joblib.dump(scaler, self.model_dir / "scaler.pkl")
 
         # 6. Train Model (Dynamic Building)
-        logger.info(f"Training Model: {config['model']['type']}")
+        active_model = config["model"]["active"]
+        logger.info(f"Training Active Model: {active_model}")
+
         model = self._build_model()
         model.fit(X_train, y_train)
 
@@ -95,30 +103,43 @@ class TrainingPipeline:
 
         # 7. Evaluate
         acc = accuracy_score(y_val, model.predict(X_val))
-        logger.info(f"Validation Accuracy: {acc:.4%}")
+        logger.info(f"Validation Accuracy ({active_model}): {acc:.4%}")
 
         logger.info("Pipeline Complete.")
 
     def _build_model(self):
         """
-        Factory method to create the model based on config.
+        Factory method to create the model based on config['model']['active'].
         """
-        model_type = config["model"]["type"]
-        params = config["model"]["parameters"]
+        # 1. Identify which model to use from the config switch
+        active_model = config["model"]["active"]
 
-        if model_type == "SVM":
+        # 2. Fetch parameters specifically for that model
+        # This allows us to keep params for SVM and RF separate in the yaml
+        try:
+            params = config["model"][active_model]
+        except KeyError:
+            # FIX: Broken into multi-line string to satisfy linter (E501)
+            raise KeyError(
+                f"Model '{active_model}' is active, but no configuration block "
+                "was found for it in local.yaml."
+            )
+
+        # 3. Instantiate the correct class
+        if active_model == "SVM":
             return SVC(**params)
-        elif model_type == "RandomForest":
+        elif active_model == "RandomForest":
             return RandomForestClassifier(**params)
         else:
-            raise ValueError(f"Unknown model type in config: {model_type}")
+            raise ValueError(f"Unknown model type in config: {active_model}")
 
     def _encode_data(self, X: pd.DataFrame) -> pd.DataFrame:
         cols_to_encode = ["pclass", "sex", "embarked", "title", "deck"]
         X["pclass"] = X["pclass"].astype(str)
 
-        X_encoded = pd.get_dummies(X[cols_to_encode], drop_first=True)
-        X_ticket = pd.get_dummies(X["ticketprefix"], prefix="ticket", drop_first=True)
+        # drop_first=False is CRITICAL for the API to handle single-row inputs correctly
+        X_encoded = pd.get_dummies(X[cols_to_encode], drop_first=False)
+        X_ticket = pd.get_dummies(X["ticketprefix"], prefix="ticket", drop_first=False)
 
         cols_to_drop = cols_to_encode + [
             "ticketprefix",

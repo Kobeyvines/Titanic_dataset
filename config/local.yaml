@@ -4,7 +4,7 @@ data:
   target_column: "Survived"
   model_dir: "models"
   # This matches the folder structure we created earlier
-  predictions_path: "data/05_predictions/submission.csv"
+  predictions_path: "data/05-predictions/submission.csv"
 
 preprocessing:
   test_size: 0.2
@@ -12,13 +12,21 @@ preprocessing:
   # We can add feature toggles here later if we want
 
 model:
-  type: "SVM"  # Options: SVM, RandomForest
-  parameters:
+  active: "SVM"  # or "SVM"
+
+  SVM:
     C: 1
     kernel: "rbf"
     gamma: "scale"
     probability: true
     random_state: 42
+
+  RandomForest:
+    n_estimators: 100
+    max_depth: 10
+    random_state: 42
+
+
 
 logging:
   level: "INFO"

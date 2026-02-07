@@ -18,6 +18,11 @@ MODEL_DIR = BASE_DIR / config["data"]["model_dir"]
 PREDICTIONS_DIR = BASE_DIR / Path(config["data"]["predictions_path"]).parent
 OUTPUT_FILE = BASE_DIR / config["data"]["predictions_path"]
 
+
+# test
+print(f"DEBUG: Script is running from: {Path(__file__).resolve()}")
+print(f"DEBUG: Model Directory is set to: {BASE_DIR / config['data']['model_dir']}")
+
 # Create output directory if it doesn't exist
 PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
