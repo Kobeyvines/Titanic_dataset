@@ -1,19 +1,25 @@
 data:
   train_path: "data/01-raw/train.csv"
   test_path: "data/01-raw/test.csv"
-  target_column: "Survived"
   model_dir: "models"
-  # This matches the folder structure we created earlier
   predictions_path: "data/05-predictions/submission.csv"
+  target_column: "Survived"
 
 preprocessing:
   test_size: 0.2
   random_state: 42
-  # We can add feature toggles here later if we want
+
+logging:
+  level: "INFO"
 
 model:
-  active: "SVM"  # or "SVM"
+  # -----------------------------------------------------------------
+  # MASTER SWITCH
+  # Options: "SVM", "RandomForest", "XGBoost", "KNN", "NeuralNetwork", "LogisticRegression", "Voting"
+  # -----------------------------------------------------------------
+  active: "RandomForest"
 
+  # 1. Support Vector Machine (Current Val Winner: 88%)
   SVM:
     C: 1
     kernel: "rbf"
@@ -21,12 +27,45 @@ model:
     probability: true
     random_state: 42
 
+  # 2. Random Forest (Current CV Winner: 84.4%)
   RandomForest:
     n_estimators: 100
-    max_depth: 10
+    max_depth: null
+    min_samples_leaf: 2
     random_state: 42
 
+  # 3. XGBoost (The Kaggle Favorite)
+  XGBoost:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.1
+    use_label_encoder: false
+    eval_metric: "logloss"
+    random_state: 42
 
+  # 4. Logistic Regression (The Baseline)
+  LogisticRegression:
+    C: 0.1
+    solver: "liblinear"
+    random_state: 42
 
-logging:
-  level: "INFO"
+  # 5. K-Nearest Neighbors (Simple & Effective)
+  KNN:
+    n_neighbors: 5
+    weights: "uniform"
+    algorithm: "auto"
+
+  # 6. Neural Network (MLP)
+  NeuralNetwork:
+    hidden_layer_sizes: [100, 50] # Two layers
+    activation: "relu"
+    solver: "adam"
+    max_iter: 500
+    random_state: 42
+
+  # THE VOTING CLASSIFIER (Ensemble)
+  # Combines your Top 2 (SVM, RF, XGBoost) to beat them all.
+  Voting:
+    voting: "soft"
+    # Weights based on your leaderboard (SVM & RF get slightly more say)
+    weights: [1, 1]

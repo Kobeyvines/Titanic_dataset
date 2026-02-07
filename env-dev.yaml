@@ -1,0 +1,29 @@
+# Environment Configuration - Development
+environment: development
+
+# Data paths (Relative to project root)
+data:
+  raw_path: "data/01-raw"
+  processed_path: "data/02-preprocessed"
+  models_path: "models"
+
+# API Configuration (Localhost for testing)
+api:
+  host: "127.0.0.1"
+  port: 8000
+  workers: 1
+  reload: true      # Hot-reloading enabled for dev
+  log_level: "debug"
+
+# Model Configuration
+model:
+  type: "Voting"    # Matches your current best model
+  model_path: "models/model.pkl"
+  scaler_path: "models/scaler.pkl"
+  columns_path: "models/model_columns.pkl"
+
+# Logging
+logging:
+  level: "DEBUG"
+  format: "text"
+  output: "stdout"

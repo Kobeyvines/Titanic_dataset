@@ -1,0 +1,30 @@
+# Environment Configuration - Production
+environment: production
+
+# Data paths
+# On Vercel, we can't write to disk, so these are mostly for reading
+data:
+  raw_path: "data/01-raw"
+  processed_path: "data/02-preprocessed"
+  models_path: "models"
+
+# API Configuration (Serverless)
+api:
+  host: "0.0.0.0"   # Must be 0.0.0.0 for cloud servers
+  port: 8000
+  workers: 4        # More workers for traffic
+  reload: false     # Disable reload for stability
+  log_level: "info" # Less noise in logs
+
+# Model Configuration
+model:
+  type: "Voting"
+  model_path: "models/model.pkl"
+  scaler_path: "models/scaler.pkl"
+  columns_path: "models/model_columns.pkl"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"    # JSON logs are better for cloud monitoring
+  output: "stdout"

@@ -3,11 +3,20 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+
+# Safe import for XGBoost
+try:
+    from xgboost import XGBClassifier
+except ImportError:
+    XGBClassifier = None
 
 # Shared Logic
 from src.pipeline.preprocessing import engineer_features
@@ -108,28 +117,47 @@ class TrainingPipeline:
         logger.info("Pipeline Complete.")
 
     def _build_model(self):
-        """
-        Factory method to create the model based on config['model']['active'].
-        """
-        # 1. Identify which model to use from the config switch
         active_model = config["model"]["active"]
+        params = config["model"].get(active_model, {})
 
-        # 2. Fetch parameters specifically for that model
-        # This allows us to keep params for SVM and RF separate in the yaml
-        try:
-            params = config["model"][active_model]
-        except KeyError:
-            # FIX: Broken into multi-line string to satisfy linter (E501)
-            raise KeyError(
-                f"Model '{active_model}' is active, but no configuration block "
-                "was found for it in local.yaml."
-            )
-
-        # 3. Instantiate the correct class
         if active_model == "SVM":
             return SVC(**params)
+
         elif active_model == "RandomForest":
             return RandomForestClassifier(**params)
+
+        elif active_model == "LogisticRegression":
+            return LogisticRegression(**params)
+
+        elif active_model == "KNN":
+            return KNeighborsClassifier(**params)
+
+        elif active_model == "NeuralNetwork":
+            return MLPClassifier(**params)
+
+        # --- RESTORED THIS BLOCK ---
+        elif active_model == "XGBoost":
+            if XGBClassifier is None:
+                raise ImportError("XGBoost is not installed. Run 'pip install xgboost'")
+            return XGBClassifier(**params)
+        # ---------------------------
+
+        elif active_model == "Voting":
+            logger.info("Building 2-Model Ensemble (SVM + Random Forest)...")
+
+            # 1. Base Models
+            clf_svm = SVC(**config["model"]["SVM"])
+            clf_rf = RandomForestClassifier(**config["model"]["RandomForest"])
+
+            # 2. Strict List: ONLY SVM and RF
+            estimators = [("svm", clf_svm), ("rf", clf_rf)]
+
+            return VotingClassifier(
+                estimators=estimators,
+                voting=config["model"]["Voting"]["voting"],
+                weights=config["model"]["Voting"]["weights"],
+            )
+
         else:
             raise ValueError(f"Unknown model type in config: {active_model}")
 
