@@ -1,0 +1,19 @@
+# Ignore the Heavy Data (The API doesn't need raw CSVs)
+data/
+notebook/
+images/
+
+# Ignore Local Python Environment (HUGE!)
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore Git history
+.git/
+.gitignore
+
+# Ignore any random large files
+*.zip
+*.tar.gz
