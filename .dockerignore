@@ -1,0 +1,19 @@
+# Ignore Git history
+.git
+.gitignore
+
+# Ignore Local Environment (CRITICAL)
+venv
+env
+.venv
+
+# Ignore Data & Notebooks (Optional: Keep models, ignore raw csvs)
+data
+notebook
+images
+
+# Ignore Cache
+__pycache__
+*.pyc
+.ipynb_checkpoints
+.DS_Store
