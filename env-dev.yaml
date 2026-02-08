@@ -21,7 +21,7 @@ model:
   # MASTER SWITCH
   # Options: "SVM", "RandomForest", "XGBoost", "KNN", "NeuralNetwork", "LogisticRegression", "Voting"
   # -----------------------------------------------------------------
-  active: "Voting"
+  active: "SVM"
 
   # 1. Support Vector Machine (Current Val Winner: 88%)
   SVM:
@@ -70,6 +70,6 @@ model:
   # THE VOTING CLASSIFIER (Ensemble)
   # Combines your Top 2 (SVM, RF, XGBoost) to beat them all.
   Voting:
-    voting: "hard"
+    voting: "soft"
     # Weights based on your leaderboard (SVM & RF get slightly more say)
     weights: [1, 1]

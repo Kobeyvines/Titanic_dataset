@@ -29,7 +29,7 @@ model:
   # Note: Training params are ignored during inference, but kept
   # to maintain config structure.
   # -----------------------------------------------------------------
-  active: "Voting"
+  active: "SVM"
 
   SVM:
     C: 1
@@ -70,5 +70,5 @@ model:
     random_state: 42
 
   Voting:
-    voting: "hard"
+    voting: "soft"
     weights: [1, 1]

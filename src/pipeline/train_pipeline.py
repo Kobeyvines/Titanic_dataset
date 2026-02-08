@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
@@ -73,26 +73,29 @@ class TrainingPipeline:
         logger.info("Applying Shared Feature Engineering...")
         X = engineer_features(X)
 
-        # 3. Encoding
-        X_encoded = self._encode_data(X)
-
-        # Save Model Columns (Critical for API alignment)
-        joblib.dump(list(X_encoded.columns), self.model_dir / "model_columns.pkl")
-
-        # 4. Split Data (Using config parameters)
+        # 3. Split FIRST (prevents leakage)
         test_size = config["preprocessing"]["test_size"]
         random_state = config["preprocessing"]["random_state"]
 
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_encoded, y, test_size=test_size, random_state=random_state, stratify=y
+        X_train_raw, X_val_raw, y_train, y_val = train_test_split(
+            X, y, test_size=test_size, random_state=random_state, stratify=y
         )
+
+        # 4. Encode train + align validation
+        X_train = self._encode_data(X_train_raw)
+        X_val = self._encode_data(X_val_raw)
+
+        # Align columns
+        X_val = X_val.reindex(columns=X_train.columns, fill_value=0)
+
+        # Save columns for API
+        joblib.dump(list(X_train.columns), self.model_dir / "model_columns.pkl")
 
         # 5. Scaling
         logger.info("Scaling features...")
         scaler = StandardScaler()
-
-        # Fill missing Age for scaling
         scale_cols = ["age", "fare", "familysize"]
+
         X_train[scale_cols] = X_train[scale_cols].fillna(X_train[scale_cols].median())
         X_val[scale_cols] = X_val[scale_cols].fillna(X_train[scale_cols].median())
 
@@ -101,16 +104,38 @@ class TrainingPipeline:
 
         joblib.dump(scaler, self.model_dir / "scaler.pkl")
 
-        # 6. Train Model (Dynamic Building)
+        # 6. Build Model
         active_model = config["model"]["active"]
         logger.info(f"Training Active Model: {active_model}")
-
         model = self._build_model()
-        model.fit(X_train, y_train)
+
+        # 7. Cross-validation (stable score)
+        logger.info("Running cross-validation...")
+        cv_scores = cross_val_score(model, X_train, y_train, cv=5)
+
+        logger.info(f"CV Accuracy: {cv_scores.mean():.4%} ± {cv_scores.std():.4%}")
+
+        # 8. Optional Hyperparameter Tuning (RandomForest example)
+        if active_model == "RandomForest" and config["model"].get("tune", False):
+            logger.info("Running GridSearch tuning...")
+
+            param_grid = {
+                "n_estimators": [100, 200, 300],
+                "max_depth": [None, 5, 10],
+            }
+
+            grid = GridSearchCV(model, param_grid, cv=5, n_jobs=-1)
+            grid.fit(X_train, y_train)
+
+            model = grid.best_estimator_
+            logger.info(f"Best params: {grid.best_params_}")
+
+        else:
+            model.fit(X_train, y_train)
 
         joblib.dump(model, self.model_dir / "model.pkl")
 
-        # 7. Evaluate
+        # 9. Final Validation Score
         acc = accuracy_score(y_val, model.predict(X_val))
         logger.info(f"Validation Accuracy ({active_model}): {acc:.4%}")
 
