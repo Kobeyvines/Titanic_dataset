@@ -7,9 +7,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-# Now we can import your modules safely
-from src.pipeline.predict_pipeline import TitanicClassifier
-
 # --- 1. PATH SETUP (Crucial for Vercel) ---
 # Current file is in: /project/api/index.py
 current_dir = Path(__file__).resolve().parent
@@ -20,7 +17,11 @@ root_dir = current_dir.parent
 # Add Root to Python Path so we can import from 'src'
 sys.path.append(str(root_dir))
 
-# --- 2. INITIALIZATION ---
+# --- 2. IMPORTS (Must happen AFTER sys.path append) ---
+# We use '# noqa: E402' to tell flake8 to ignore "module level import not at top of file"
+from src.pipeline.predict_pipeline import TitanicClassifier  # noqa: E402
+
+# --- 3. INITIALIZATION ---
 app = FastAPI(title="Titanic Survival API")
 
 # Setup Paths to Static/Templates (They are inside src/)
@@ -47,7 +48,7 @@ except Exception as e:
     classifier = None
 
 
-# --- 3. DATA SCHEMA ---
+# --- 4. DATA SCHEMA ---
 class Passenger(BaseModel):
     Pclass: int
     Sex: str
@@ -61,9 +62,7 @@ class Passenger(BaseModel):
     Cabin: str = None
 
 
-# --- 4. ROUTES ---
-
-
+# --- 5. ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if templates is None:
@@ -77,14 +76,14 @@ async def predict(passenger: Passenger):
         raise HTTPException(status_code=503, detail="Model is not loaded")
 
     try:
-        # Convert Pydantic -> Dict -> DataFrame
+        # Convert Pydantic -> Dict
         data = passenger.dict()
 
         # Call your pipeline
+        # The pipeline likely converts dict to DataFrame internally, so no need for pandas here
         result = classifier.predict(data)
 
-        # Handle the result (Assuming pipeline returns simple 0 or 1, or string)
-        # If your pipeline returns a complex object, we simplify it here:
+        # Handle the result
         prediction_value = (
             int(result[0]) if hasattr(result, "__iter__") else int(result)
         )
