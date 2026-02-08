@@ -1,29 +1,75 @@
 # Environment Configuration - Development
 environment: development
 
-# Data paths (Relative to project root)
+
 data:
-  raw_path: "data/01-raw"
-  processed_path: "data/02-preprocessed"
-  models_path: "models"
+  train_path: "data/01-raw/train.csv"
+  test_path: "data/01-raw/test.csv"
+  model_dir: "models"
+  predictions_path: "data/05-predictions/submission.csv"
+  target_column: "Survived"
 
-# API Configuration (Localhost for testing)
-api:
-  host: "127.0.0.1"
-  port: 8000
-  workers: 1
-  reload: true      # Hot-reloading enabled for dev
-  log_level: "debug"
+preprocessing:
+  test_size: 0.2
+  random_state: 42
 
-# Model Configuration
-model:
-  type: "Voting"    # Matches your current best model
-  model_path: "models/model.pkl"
-  scaler_path: "models/scaler.pkl"
-  columns_path: "models/model_columns.pkl"
-
-# Logging
 logging:
-  level: "DEBUG"
-  format: "text"
-  output: "stdout"
+  level: "INFO"
+
+model:
+  # -----------------------------------------------------------------
+  # MASTER SWITCH
+  # Options: "SVM", "RandomForest", "XGBoost", "KNN", "NeuralNetwork", "LogisticRegression", "Voting"
+  # -----------------------------------------------------------------
+  active: "Voting"
+
+  # 1. Support Vector Machine (Current Val Winner: 88%)
+  SVM:
+    C: 1
+    kernel: "rbf"
+    gamma: "scale"
+    probability: true
+    random_state: 42
+
+  # 2. Random Forest (Current CV Winner: 84.4%)
+  RandomForest:
+    n_estimators: 100
+    max_depth: null
+    min_samples_leaf: 2
+    random_state: 42
+
+  # 3. XGBoost (The Kaggle Favorite)
+  XGBoost:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.1
+    use_label_encoder: false
+    eval_metric: "logloss"
+    random_state: 42
+
+  # 4. Logistic Regression (The Baseline)
+  LogisticRegression:
+    C: 0.1
+    solver: "liblinear"
+    random_state: 42
+
+  # 5. K-Nearest Neighbors (Simple & Effective)
+  KNN:
+    n_neighbors: 5
+    weights: "uniform"
+    algorithm: "auto"
+
+  # 6. Neural Network (MLP)
+  NeuralNetwork:
+    hidden_layer_sizes: [100, 50] # Two layers
+    activation: "relu"
+    solver: "adam"
+    max_iter: 500
+    random_state: 42
+
+  # THE VOTING CLASSIFIER (Ensemble)
+  # Combines your Top 2 (SVM, RF, XGBoost) to beat them all.
+  Voting:
+    voting: "hard"
+    # Weights based on your leaderboard (SVM & RF get slightly more say)
+    weights: [1, 1]

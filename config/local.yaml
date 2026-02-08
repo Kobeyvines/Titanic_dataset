@@ -17,7 +17,7 @@ model:
   # MASTER SWITCH
   # Options: "SVM", "RandomForest", "XGBoost", "KNN", "NeuralNetwork", "LogisticRegression", "Voting"
   # -----------------------------------------------------------------
-  active: "RandomForest"
+  active: "Voting"
 
   # 1. Support Vector Machine (Current Val Winner: 88%)
   SVM:
