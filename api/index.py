@@ -76,19 +76,21 @@ async def predict(passenger: Passenger):
         raise HTTPException(status_code=503, detail="Model is not loaded")
 
     try:
-        # Convert Pydantic -> Dict
         data = passenger.dict()
 
-        # Call your pipeline
-        # The pipeline likely converts dict to DataFrame internally, so no need for pandas here
-        result = classifier.predict(data)
+        # UNPACK the tuple: (0, 0.76)
+        prediction, probability = classifier.predict(data)
 
-        # Handle the result
-        prediction_value = (
-            int(result[0]) if hasattr(result, "__iter__") else int(result)
-        )
+        prediction_value = int(prediction)
         message = "Survived" if prediction_value == 1 else "Did Not Survive"
 
-        return {"prediction": prediction_value, "result": message}
+        # Format as percentage (e.g., 0.762 -> 76.2)
+        prob_percent = round(probability * 100, 1)
+
+        return {
+            "prediction": prediction_value,
+            "result": message,
+            "probability": prob_percent,
+        }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})

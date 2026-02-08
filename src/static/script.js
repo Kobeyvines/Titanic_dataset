@@ -1,11 +1,17 @@
-// CONFIGURATION: Historical Limits (Min & Max)
+// ==========================================
+// 1. CONFIGURATION: Historical Limits
+// ==========================================
 const CONSTRAINTS = {
-    1: { minFare: 25, maxFare: 513, avgFare: 84 },  // 1st Class starts at ~$25
-    2: { minFare: 10, maxFare: 74,  avgFare: 20 },  // 2nd Class starts at ~$10
-    3: { minFare: 0,  maxFare: 70,  avgFare: 13 }   // 3rd Class starts at $0
+    1: { minFare: 0, maxFare: 513, avgFare: 84 },  // 1st Class (Widest range)
+    2: { minFare: 0, maxFare: 74,  avgFare: 20 },  // 2nd Class
+    3: { minFare: 0, maxFare: 70,  avgFare: 13 }   // 3rd Class
 };
 
-// 1. GENERIC VALIDATOR (Snaps values to min/max)
+// ==========================================
+// 2. VALIDATION HELPERS
+// ==========================================
+
+// Generic Validator (Snaps values to min/max)
 function validateInput(inputElement, min, max) {
     let value = parseFloat(inputElement.value);
 
@@ -18,7 +24,7 @@ function validateInput(inputElement, min, max) {
     }
 }
 
-// 2. FARE VALIDATOR (Checks BOTH Min and Max)
+// Fare Validator (Checks Class-Specific Limits)
 function validateFare() {
     const pclass = document.getElementById("pclass").value;
     const fareInput = document.getElementById("fare");
@@ -31,19 +37,14 @@ function validateFare() {
 
     if (isNaN(value)) return; // Don't annoy user while typing empty string
 
-    // Check Lower Bound
-    if (value < min) {
-        alert(`A 1st Class ticket couldn't be bought for $${value}! The minimum was around $${min}. Resetting.`);
-        fareInput.value = min;
-    }
-    // Check Upper Bound
-    else if (value > max) {
-        alert(`Historically, ${pclass} Class fares did not exceed $${max}. Resetting.`);
+    // Check Upper Bound ONLY (Lower bound 0 is fine for all classes practically)
+    if (value > max) {
+        alert(`Historically, ${pclass} Class fares did not exceed $${max}. Resetting to max.`);
         fareInput.value = max;
     }
 }
 
-// 3. UPDATE CONSTRAINTS (Updates the UI hint)
+// Update UI Constraints when Class changes
 function updateConstraints() {
     const pclass = document.getElementById("pclass").value;
     const fareLabel = document.getElementById("fare-label");
@@ -58,14 +59,17 @@ function updateConstraints() {
     fareInput.max = limits.maxFare;
 
     // Smart Auto-Correction:
-    // If user switches from 3rd (Fare $8) to 1st, $8 is invalid.
-    // Automatically bump them up to the minimum ($25).
-    if (parseFloat(fareInput.value) < limits.minFare) {
-        fareInput.value = limits.minFare;
+    // If user switches from 3rd (Fare $8) to 1st, keep it.
+    // If they switch from 1st ($200) to 3rd, snap down to $70.
+    if (parseFloat(fareInput.value) > limits.maxFare) {
+        fareInput.value = limits.maxFare;
     }
 }
 
-// 4. MAIN PREDICTION FUNCTION
+// ==========================================
+// 3. MAIN PREDICTION LOGIC
+// ==========================================
+
 async function predictSurvival() {
     // Collect Data
     const pclass = document.getElementById("pclass").value;
@@ -76,7 +80,7 @@ async function predictSurvival() {
     const fare = document.getElementById("fare").value;
     const embarked = document.getElementById("embarked").value;
 
-    // Payload
+    // Build Payload
     const payload = {
         "Pclass": parseInt(pclass),
         "Sex": sex,
@@ -85,11 +89,14 @@ async function predictSurvival() {
         "Parch": parseInt(parch),
         "Fare": parseFloat(fare),
         "Embarked": embarked,
-        "Name": "Web User",
-        "Ticket": "WEB-001", // Neutral Ticket
-        "PassengerId": 9999,
-        "Cabin": "U"
+        "Name": "Web User",      // Dummy data required by pipeline
+        "Ticket": "WEB-001",     // Dummy data
+        "PassengerId": 9999,     // Dummy data
+        "Cabin": "U"             // Dummy data
     };
+
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = "Calculating..."; // Show loading state
 
     try {
         const response = await fetch("/predict", {
@@ -99,29 +106,42 @@ async function predictSurvival() {
         });
 
         const result = await response.json();
-        const resultDiv = document.getElementById("result");
+
+        // --- THE FIX: Handle Probability Correctly ---
+        // API sends "probability": 16.0  (Already a percentage)
+        // OLD CODE: result.survival_probability * 100 -> undefined * 100 -> NaN
+
+        const prob = result.probability; // Get the raw number (e.g., 16.0)
 
         // Visual Feedback
         if (result.prediction === 1) {
             resultDiv.className = "success";
+            resultDiv.style.color = "#27ae60"; // Green
             resultDiv.innerHTML = `
-                <h2 style="color: #27ae60;">🎉 Survived</h2>
-                <p>Probability: <strong>${(result.survival_probability * 100).toFixed(1)}%</strong></p>
+                <h2>🎉 Survived</h2>
+                <p>Probability: <strong>${prob}%</strong></p>
                 <p style="font-size: 0.8em; color: #7f8c8d;">(Based on historical patterns)</p>
             `;
         } else {
             resultDiv.className = "danger";
+            resultDiv.style.color = "#c0392b"; // Red
             resultDiv.innerHTML = `
-                <h2 style="color: #c0392b;">💀 Did Not Survive</h2>
-                <p>Probability: <strong>${(result.survival_probability * 100).toFixed(1)}%</strong></p>
+                <h2>💀 Did Not Survive</h2>
+                <p>Probability: <strong>${prob}%</strong></p>
                 <p style="font-size: 0.8em; color: #7f8c8d;">(Based on historical patterns)</p>
             `;
         }
+
     } catch (error) {
-        alert("Error connecting to API!");
+        alert("Error connecting to API! Is the server running?");
         console.error(error);
+        resultDiv.innerHTML = "Error.";
     }
 }
 
-// Initialize on Load
-document.addEventListener("DOMContentLoaded", updateConstraints);
+// ==========================================
+// 4. INITIALIZATION
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    updateConstraints(); // Set initial constraints
+});
